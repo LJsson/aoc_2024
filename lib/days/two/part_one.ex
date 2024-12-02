@@ -17,7 +17,6 @@ defmodule AOC2024.Days.Two.PartOne do
     |> Enum.map(&safe?/1)
     |> Enum.reject(&(&1 == false))
     |> Enum.count()
-    |> IO.inspect()
   end
 
   def test(), do: solve(@test_input)
@@ -26,42 +25,32 @@ defmodule AOC2024.Days.Two.PartOne do
 
   defp safe?(levels) do
     levels
-    |> Enum.take(2)
-    |> case do
-      [first, second] when first < second ->
-        iterate_level(levels, :plus)
+    |> Enum.reduce_while({nil, nil}, fn
+      level, {nil, prev} when is_nil(prev) ->
+        {:cont, {nil, level}}
 
-      [first, second] when first > second ->
-        iterate_level(levels, :minus)
+      level, {nil, prev} ->
+        detect_trend(level, prev)
+
+      level, {trend, prev} ->
+        validate_trend(level, prev, trend)
+    end) != false
+  end
+
+  defp detect_trend(level, prev) do
+    case level - prev do
+      diff when diff > 0 and diff <= 3 -> {:cont, {:plus, level}}
+      diff when diff < 0 and diff >= -3 -> {:cont, {:minus, level}}
+      _ -> {:halt, false}
     end
   end
 
-  defp iterate_level(levels, :plus) do
-    levels
-    |> Enum.reduce_while(nil, fn
-      level, nil ->
-        {:cont, level}
-
-      level, prev when level - prev <= 3 and level - prev > 0 ->
-        {:cont, level}
-
-      _, _ ->
-        {:halt, false}
-    end) != false
+  defp validate_trend(level, prev, :plus) do
+    if level - prev > 0 and level - prev <= 3, do: {:cont, {:plus, level}}, else: {:halt, false}
   end
 
-  defp iterate_level(levels, :minus) do
-    levels
-    |> Enum.reduce_while(nil, fn
-      level, nil ->
-        {:cont, level}
-
-      level, prev when level - prev >= -3 and level - prev < 0 ->
-        {:cont, level}
-
-      _, _ ->
-        {:halt, false}
-    end) != false
+  defp validate_trend(level, prev, :minus) do
+    if level - prev < 0 and level - prev >= -3, do: {:cont, {:minus, level}}, else: {:halt, false}
   end
 
   defp parse_input(input) do
