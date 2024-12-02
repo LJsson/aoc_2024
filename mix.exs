@@ -14,8 +14,7 @@ defmodule Aoc2024.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      mod: {AdventOfCode, []},
-      applications: [:httpoison],
+      mod: {AOC2024, []},
       extra_applications: [:logger]
     ]
   end

@@ -1,78 +1,67 @@
-defmodule Inputs do
+defmodule AOC2024.Input do
   @moduledoc false
-  @cache_path "~/.cache/advent_of_code"
 
-  @spec get(non_neg_integer() | atom(), non_neg_integer()) ::
-          {:ok, String.t()} | {:error, String.t()}
-  def get(day, year \\ 0)
+  @base_url "https://adventofcode.com"
+  @cache_dir "aoc_inputs"
 
-  def get(module_string, _) when is_atom(module_string) do
-    {day, year} = get_info_from_module(module_string)
+  @doc """
+  Fetches the input for a given year and day, caching it for future use.
 
-    get(day, year)
-  end
+  ## Parameters
+    - `year` (integer): The year of the challenge.
+    - `day` (integer): The day of the challenge.
 
-  def get(day, _) when day > 25 or day < 1, do: {:error, "Invalid day: #{day}"}
+  ## Example
+      iex> AdventOfCode.Input.get(2024, 1)
+  """
+  def get(year, day) do
+    ensure_cache_dir()
 
-  def get(day, year) do
-    cond do
-      in_cache?(day, year) -> get_cache(day, year)
-      has_session_cookie?() -> download(day, year)
-      true -> {:error, "wrong"}
+    file_path = cache_file_path(year, day)
+
+    case File.read(file_path) do
+      {:ok, content} ->
+        content
+
+      {:error, _reason} ->
+        fetch_and_cache_input(year, day, file_path)
     end
   end
 
-  @spec get_info_from_module(atom()) :: {integer(), integer()}
-  defp get_info_from_module(module) do
-    [year_chunk, day_chunk, _] =
-      module
-      |> Atom.to_string()
-      |> String.replace_leading("Elixir.AdventOfCode.Solutions.", "")
-      |> String.split(".")
+  defp fetch_and_cache_input(year, day, file_path) do
+    case fetch_input(year, day) do
+      {:ok, input} ->
+        File.write!(file_path, input)
+        input
 
-    {
-      day_chunk |> String.replace("Day", "") |> String.to_integer(),
-      year_chunk |> String.replace("Year", "") |> String.to_integer()
-    }
-  end
-
-  @spec filepath(non_neg_integer(), non_neg_integer()) :: String.t()
-  defp filepath(day, year),
-    do: Path.join([@cache_path, "year#{year}day#{day}"]) |> Path.expand()
-
-  @spec in_cache?(non_neg_integer(), non_neg_integer()) :: boolean()
-  defp in_cache?(day, year), do: File.exists?(filepath(day, year))
-
-  @spec get_cache(non_neg_integer(), non_neg_integer()) ::
-          {:ok, String.t()} | {:error, String.t()}
-  defp get_cache(day, year) do
-    case File.read(filepath(day, year)) do
-      {:ok, contents} -> {:ok, contents}
-      {:error, reason} -> {:error, reason}
+      {:error, reason} ->
+        raise(reason)
     end
   end
 
-  @spec has_session_cookie?() :: boolean()
-  defp has_session_cookie?(), do: session_cookie() != nil
+  defp fetch_input(year, day) do
+    session_cookie = System.get_env("AOC_SESSION")
 
-  defp download(day, year) do
-    case HTTPoison.get("https://adventofcode.com/#{year}/day/#{day}/input", headers()) do
-      {:ok, %{status_code: 200} = response} -> save_to_cache(day, year, response.body)
-      {:error, reason} -> {:error, reason}
+    url = "#{@base_url}/#{year}/day/#{day}/input"
+    headers = [{"cookie", "session=#{session_cookie}"}]
+
+    case HTTPoison.get(url, headers) do
+      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
+        {:ok, body}
+
+      {:ok, %HTTPoison.Response{status_code: status}} ->
+        {:error, "Failed with status code #{status}"}
+
+      {:error, %HTTPoison.Error{reason: reason}} ->
+        {:error, "HTTP request failed: #{inspect(reason)}"}
     end
   end
 
-  defp save_to_cache(day, year, contents) do
-    path = filepath(day, year) |> Path.dirname()
-
-    File.mkdir_p(path)
-    File.write(filepath(day, year), contents)
-
-    {:ok, contents}
+  defp ensure_cache_dir do
+    File.mkdir_p!(@cache_dir)
   end
 
-  defp config, do: Application.get_env(:advent_of_code, __MODULE__)
-  defp session_cookie, do: Keyword.get(config(), :session_cookie, nil)
-
-  defp headers, do: [{"cookie", "session=#{session_cookie()}"}]
+  defp cache_file_path(year, day) do
+    "#{@cache_dir}/#{year}_day_#{day}.txt"
+  end
 end
