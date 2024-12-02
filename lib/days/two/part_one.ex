@@ -14,16 +14,17 @@ defmodule AOC2024.Days.Two.PartOne do
   def solve(input) do
     input
     |> parse_input
-    |> Enum.map(&is_safe?/1)
+    |> Enum.map(&safe?/1)
     |> Enum.reject(&(&1 == false))
     |> Enum.count()
+    |> IO.inspect()
   end
 
   def test(), do: solve(@test_input)
 
   def run(), do: solve(Input.get(2024, 2))
 
-  defp is_safe?(levels) do
+  defp safe?(levels) do
     levels
     |> Enum.take(2)
     |> case do
